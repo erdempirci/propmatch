@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seans Risk Makinesi</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--line:#262a33;--tx:#e8eaed;--mut:#8b93a1;--acc:#5b8cff;--win:#2fbf71;--loss:#e5534b;--warn:#e3a33b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:16px;max-width:720px;margin-inline:auto}
+h1{font-size:20px;margin:4px 0 2px}
+.sub{color:var(--mut);font-size:13px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 10px;font-weight:600}
+.big{font-size:40px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.big small{font-size:15px;color:var(--mut);font-weight:500}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv{background:#12151b;border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.kv .k{font-size:12px;color:var(--mut)}
+.kv .v{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+button{font:inherit;border:0;border-radius:12px;padding:14px;font-weight:700;cursor:pointer;color:#fff}
+.bw{background:var(--win)}.bl{background:var(--loss)}
+.bs{background:#2a2f3a;color:var(--tx);font-weight:600;padding:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row button{flex:1}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
+input,select{width:100%;background:#12151b;border:1px solid var(--line);color:var(--tx);border-radius:9px;padding:9px;font:inherit;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600}
+.p-ok{background:rgba(47,191,113,.15);color:var(--win)}.p-bad{background:rgba(229,83,75,.15);color:var(--loss)}.p-run{background:rgba(91,140,255,.15);color:var(--acc)}
+.dots{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.dot{width:22px;height:22px;border-radius:6px;background:#232733;display:grid;place-items:center;font-size:11px;font-weight:700}
+.dot.w{background:var(--win)}.dot.l{background:var(--loss)}
+.note{font-size:13px;color:var(--mut)}
+.warn{color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}
+th{color:var(--mut);font-weight:500}td:first-child,th:first-child{text-align:left}
+.bar{height:8px;background:#232733;border-radius:99px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--acc)}
+details summary{cursor:pointer;color:var(--mut);font-size:13px}
+</style>
+</head>
+<body>
+<h1>Seans Risk Makinesi</h1>
+<div class="sub">Masaniello mantığı · bir sonraki işlemde kaç $ riske atacağını söyler · seans günler arasında devam edebilir</div>
+
+<div class="card">
+  <h2>Sıradaki işlem</h2>
+  <div id="status"></div>
+  <div class="big" id="risk">—</div>
+  <div class="note" id="riskNote"></div>
+  <div class="btns">
+    <button class="bw" id="bWin">✓ Kazandım</button>
+    <button class="bl" id="bLoss">✕ Kaybettim</button>
+  </div>
+  <div class="row">
+    <button class="bs" id="bUndo">↶ Geri al</button>
+    <button class="bs" id="bNew">Yeni seans başlat</button>
+  </div>
+  <div class="dots" id="dots"></div>
+</div>
+
+<div class="card">
+  <h2>Hesap</h2>
+  <div class="grid">
+    <div class="kv"><div class="k">Bakiye</div><div class="v" id="bal"></div></div>
+    <div class="kv"><div class="k">Kayıp tabanı (limit)</div><div class="v" id="floor"></div></div>
+    <div class="kv"><div class="k">Limite kalan tampon</div><div class="v" id="buf"></div></div>
+    <div class="kv"><div class="k">Toplam K/Z</div><div class="v" id="pnl"></div></div>
+  </div>
+  <div class="bar"><i id="bufBar"></i></div>
+  <div class="note" style="margin-top:6px" id="bufNote"></div>
+</div>
+
+<div class="card">
+  <h2>Bu seans</h2>
+  <div class="grid">
+    <div class="kv"><div class="k">Seans kasası (en kötü kayıp)</div><div class="v" id="sCap"></div></div>
+    <div class="kv"><div class="k">Seans hedefi</div><div class="v" id="sTgt"></div></div>
+    <div class="kv"><div class="k">Kalan işlem / gereken kazanç</div><div class="v" id="sLeft"></div></div>
+    <div class="kv"><div class="k">Seans K/Z şu an</div><div class="v" id="sPnl"></div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Lot çevirici</h2>
+  <div class="grid">
+    <div><label>Stop mesafesi (pip/puan)</label><input id="stop" type="number" step="any" value="20"></div>
+    <div><label>1 lotta pip/puan değeri ($)</label><input id="pipv" type="number" step="any" value="10"></div>
+  </div>
+  <div style="margin-top:10px" class="big" id="lots">—</div>
+  <div class="note">Lot = Risk $ ÷ (Stop × pip değeri). EURUSD için pip değeri ≈ 10$, XAUUSD (1 lot = 100 oz) için 1$'lık hareket = 100$. Broker'ında kontrol et.</div>
+</div>
+
+<div class="card">
+  <h2>Ayarlar</h2>
+  <div class="grid">
+    <div><label>Başlangıç bakiyesi ($)</label><input id="start" type="number" value="25000"></div>
+    <div><label>Toplam kayıp limiti (%)</label><input id="lim" type="number" step="any" value="7"></div>
+    <div><label>Limit türü</label><select id="ltype"><option value="static">Sabit (başlangıçtan)</option><option value="trail">Trailing (zirveden)</option></select></div>
+    <div><label>Seans kasası türü</label><select id="cmode"><option value="fixed">Sabit $ (her seans aynı)</option><option value="pct">Tamponun %'si</option></select></div>
+    <div><label>Sabit seans kasası ($)</label><input id="fixed" type="number" step="any" value="175"></div>
+    <div><label>Seans kasası (tamponun %'si)</label><input id="frac" type="number" step="any" value="10"></div>
+    <div><label>Seanstaki işlem sayısı</label><input id="n" type="number" min="1" max="30" value="7"></div>
+    <div><label>Gereken kazanç</label><input id="k" type="number" min="1" max="30" value="2"></div>
+    <div><label>Risk/ödül (R)</label><input id="R" type="number" step="any" value="2"></div>
+    <div><label>Kazanma oranın (%)</label><input id="p" type="number" step="any" value="40"></div>
+  </div>
+  <div class="row"><button class="bs" id="bApply">Ayarları kaydet</button><button class="bs" id="bReset">Her şeyi sıfırla</button></div>
+  <div class="note" style="margin-top:8px">Ayar değişikliği açık seansı bozmaz; bir sonraki seansta geçerli olur. "Her şeyi sıfırla" bakiyeyi ve geçmişi siler.</div>
+</div>
+
+<div class="card">
+  <h2>Bu ayarın istatistiği</h2>
+  <div class="grid">
+    <div class="kv"><div class="k">Seansı tamamlama ihtimali</div><div class="v" id="stOk"></div></div>
+    <div class="kv"><div class="k">Başarılı seans getirisi</div><div class="v" id="stGain"></div></div>
+    <div class="kv"><div class="k">Seans başı beklenti</div><div class="v" id="stEv"></div></div>
+    <div class="kv"><div class="k">Başa baş kazanma oranı</div><div class="v" id="stBe"></div></div>
+  </div>
+  <div class="note" style="margin-top:8px" id="stNote"></div>
+</div>
+
+<div class="card">
+  <h2>Geçmiş</h2>
+  <table><thead><tr><th>#</th><th>Sonuç</th><th>Risk</th><th>K/Z</th><th>Bakiye</th></tr></thead><tbody id="hist"></tbody></table>
+  <details style="margin-top:8px"><summary>Nasıl çalışır?</summary>
+  <p class="note">Her seansta tamponun belli bir yüzdesi "seans kasası" olur. Makine her işlemin riskini, seansın kalanında gereken kazançlar hangi sırayla gelirse gelsin hedefe ulaşılacak şekilde hesaplar. Kazanınca sonraki risk küçülür, kaybedince büyür. Gereken kazançlar gelince seans biter. Kalan işlem sayısı gereken kazanç sayısına eşitlenirse seans kasasının tamamı riske girer; seans başarısız olursa kaybın seans kasası kadardır. Sabit modda her seansın kasası aynıdır (örn. 175$); seansın içindeki kayıplar günler boyunca toplanır ve bu tutarı asla geçmez. Tampon seans kasasından küçülürse kasa tampona eşitlenir. Yüzde modunda kasa kalan tamponla birlikte küçülür, hesap hiç sıfırlanmaz ama toparlanma yavaşlar.</p>
+  <p class="note">Gün içinde yeterli fırsat çıkmazsa seansı zorlamayın: kaldığı yerden yarın devam eder. Veriler sadece bu tarayıcıda saklanır.</p>
+  </details>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=v=>(v<0?"−":"")+"$"+Math.abs(v).toLocaleString("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=v=>"%"+(v*100).toLocaleString("tr-TR",{maximumFractionDigits:1});
+const KEY="seans-risk-makinesi-v1";
+let S=null;
+
+function defaults(){return{cfg:{start:25000,lim:7,ltype:"static",cmode:"fixed",fixed:175,frac:10,n:7,k:2,R:2,p:40},balance:25000,peak:25000,sess:null,hist:[],sessNo:0,undo:[]};}
+function load(){try{const t=localStorage.getItem(KEY);if(t){const o=JSON.parse(t);if(!o.cfg.cmode){o.cfg.cmode="fixed";o.cfg.fixed=175;}return o;}}catch(e){}return defaults();}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+function gFactory(R){const memo={};const g=(m,w)=>{if(w===0)return 1;if(w>m)return Infinity;const key=m+","+w;if(key in memo)return memo[key];const a=g(m-1,w-1),b=g(m-1,w);let r;if(b===Infinity)r=a*(1+R);else{const x=(b-a)/(R*a+b);r=(1-x)*b;}memo[key]=r;return r;};return g;}
+function stakeFrac(R,m,w){const g=gFactory(R);const a=g(m-1,w-1),b=g(m-1,w);if(b===Infinity)return 1;return (b-a)/(R*a+b);}
+function floorVal(){const c=S.cfg;const base=c.ltype==="trail"?S.peak:c.start;return base*(1-c.lim/100);}
+function binomGE(n,k,p){let s=0;for(let i=k;i<=n;i++){s+=comb(n,i)*Math.pow(p,i)*Math.pow(1-p,n-i);}return s;}
+function comb(n,r){let c=1;for(let i=1;i<=r;i++)c=c*(n-r+i)/i;return c;}
+
+function capFor(buf){const c=S.cfg;if(c.cmode==="fixed")return Math.max(0,Math.min(c.fixed||0,buf));return Math.max(0,buf)*c.frac/100;}
+function newSession(){
+  const c=S.cfg;const buf=Math.max(0,S.balance-floorVal());
+  const cap=capFor(buf);const g=gFactory(c.R);
+  S.sessNo++;
+  S.sess={no:S.sessNo,n:c.n,k:c.k,R:c.R,cap:cap,C:cap,m:c.n,w:c.k,target:cap*(g(c.n,c.k)-1),res:[],state:"run"};
+}
+function nextStake(){const s=S.sess;if(!s||s.state!=="run")return 0;return s.C*stakeFrac(s.R,s.m,s.w);}
+
+function record(win){
+  const s=S.sess;if(!s||s.state!=="run")return;
+  S.undo.push(JSON.stringify({balance:S.balance,peak:S.peak,sess:S.sess,hist:S.hist,sessNo:S.sessNo}));
+  if(S.undo.length>50)S.undo.shift();
+  const st=nextStake();const pl=win?st*s.R:-st;
+  s.C+=pl;S.balance+=pl;S.peak=Math.max(S.peak,S.balance);
+  s.m--;if(win)s.w--;s.res.push(win?"w":"l");
+  if(s.w===0)s.state="ok";else if(s.w>s.m||s.C<=1e-6)s.state="bad";
+  S.hist.unshift({s:s.no,t:s.res.length,win,risk:st,pl,bal:S.balance});
+  if(S.hist.length>300)S.hist.length=300;
+  save();render();
+}
+
+function render(){
+  const c=S.cfg;const fl=floorVal();const buf=S.balance-fl;
+  $("bal").textContent=fmt(S.balance);$("floor").textContent=fmt(fl);
+  $("buf").textContent=fmt(buf);
+  const pnl=S.balance-c.start;$("pnl").textContent=fmt(pnl);$("pnl").style.color=pnl>=0?"var(--win)":"var(--loss)";
+  const full=c.start*c.lim/100;$("bufBar").style.width=Math.max(0,Math.min(100,buf/full*100))+"%";
+  $("bufNote").textContent=`Limite kadar ${fmt(buf)} kaldı (${c.lim}% limitin ${pct(Math.max(0,buf)/full)} kadarı).`;
+  const s=S.sess;
+  if(!s){$("status").innerHTML='<span class="pill p-run">Seans yok</span>';$("risk").innerHTML="—";$("riskNote").textContent="“Yeni seans başlat”a bas.";}
+  else{
+    const st=nextStake();
+    if(s.state==="run"){
+      $("status").innerHTML=`<span class="pill p-run">Seans ${s.no} · işlem ${s.res.length+1}/${s.n}</span>`;
+      $("risk").innerHTML=fmt(st)+' <small>risk</small>';
+      const allIn=s.w===s.m;
+      $("riskNote").innerHTML=`Kazanırsan +${fmt(st*s.R)}, kaybedersen −${fmt(st)}.`+(allIn?' <span class="warn">Kalan işlemlerin hepsi kazanmalı — seans kasasının kalanı riskte.</span>':"");
+    }else if(s.state==="ok"){
+      $("status").innerHTML='<span class="pill p-ok">Seans hedefe ulaştı</span>';
+      $("risk").innerHTML=fmt(s.C-s.cap)+' <small>kâr</small>';$("riskNote").textContent="Bugün burada dur. Sonraki işlemde yeni seans başlat.";
+    }else{
+      $("status").innerHTML='<span class="pill p-bad">Seans başarısız</span>';
+      $("risk").innerHTML=fmt(s.C-s.cap)+' <small>K/Z</small>';$("riskNote").textContent="Seans kasası kaybedildi. Bugün işlemi bırak; yarın yeni seans aç.";
+    }
+    $("sCap").textContent=fmt(s.cap);$("sTgt").textContent="+"+fmt(s.target);
+    $("sLeft").textContent=`${s.m} / ${s.w}`;const sp=s.C-s.cap;$("sPnl").textContent=fmt(sp);$("sPnl").style.color=sp>=0?"var(--win)":"var(--loss)";
+    const d=$("dots");d.innerHTML="";for(let i=0;i<s.n;i++){const e=document.createElement("div");e.className="dot"+(s.res[i]?" "+s.res[i]:"");e.textContent=s.res[i]?(s.res[i]==="w"?"✓":"✕"):i+1;d.appendChild(e);}
+  }
+  const run=s&&s.state==="run";$("bWin").disabled=$("bLoss").disabled=!run;$("bWin").style.opacity=$("bLoss").style.opacity=run?1:.4;
+  // lots
+  const st=nextStake();const stop=+$("stop").value,pv=+$("pipv").value;
+  $("lots").innerHTML=(run&&stop>0&&pv>0)?(st/(stop*pv)).toFixed(2)+' <small>lot</small>':"—";
+  // stats
+  const p=c.p/100;const g=gFactory(c.R);const gain=g(c.n,c.k)-1;const ok=binomGE(c.n,c.k,p);
+  const ev=ok*gain-(1-ok);const capNow=capFor(buf);
+  $("stOk").textContent=pct(ok);$("stGain").textContent="+"+pct(gain)+" · "+fmt(capNow*gain);
+  $("stEv").textContent=(ev>=0?"+":"")+fmt(capNow*ev);$("stEv").style.color=ev>=0?"var(--win)":"var(--loss)";
+  $("stBe").textContent=pct(1/(1+c.R));
+  $("stNote").innerHTML=(p<=1/(1+c.R)?'<span class="warn">Kazanma oranın başa baş seviyenin altında: bu ayarla uzun vadede kaybedersin. Para yönetimi bunu düzeltmez.</span> ':"")+`Her 20 seansın yaklaşık ${(20*(1-ok)).toLocaleString("tr-TR",{maximumFractionDigits:1})} tanesi başarısız olur (her biri en fazla ${fmt(capNow)}).`;
+  // hist
+  $("hist").innerHTML=S.hist.slice(0,60).map(h=>`<tr><td>S${h.s}·${h.t}</td><td style="color:${h.win?"var(--win)":"var(--loss)"}">${h.win?"Kazanç":"Kayıp"}</td><td>${fmt(h.risk)}</td><td>${fmt(h.pl)}</td><td>${fmt(h.bal)}</td></tr>`).join("")||'<tr><td colspan="5" class="note">Henüz işlem yok.</td></tr>';
+}
+function fillCfg(){const c=S.cfg;for(const k of["start","lim","frac","fixed","n","k","R","p"])$(k).value=c[k]??"";$("ltype").value=c.ltype;$("cmode").value=c.cmode||"pct";}
+function readCfg(){const c={start:+$("start").value,lim:+$("lim").value,ltype:$("ltype").value,cmode:$("cmode").value,fixed:+$("fixed").value,frac:+$("frac").value,n:Math.round(+$("n").value),k:Math.round(+$("k").value),R:+$("R").value,p:+$("p").value};
+  if(!(c.start>0&&c.lim>0&&c.lim<100&&c.frac>0&&c.frac<=100&&c.fixed>0&&c.n>=1&&c.n<=30&&c.k>=1&&c.k<=c.n&&c.R>0&&c.p>0&&c.p<100)){return null;}return c;}
+
+S=load();fillCfg();render();
+$("bWin").onclick=()=>record(true);$("bLoss").onclick=()=>record(false);
+$("bNew").onclick=()=>{if(S.sess&&S.sess.state==="run"&&S.sess.res.length>0){if(!$("bNew").dataset.c){$("bNew").dataset.c=1;$("bNew").textContent="Açık seans kapanacak — tekrar bas";setTimeout(()=>{delete $("bNew").dataset.c;$("bNew").textContent="Yeni seans başlat";},3000);return;}}
+  delete $("bNew").dataset.c;$("bNew").textContent="Yeni seans başlat";
+  S.undo.push(JSON.stringify({balance:S.balance,peak:S.peak,sess:S.sess,hist:S.hist,sessNo:S.sessNo}));newSession();save();render();};
+$("bUndo").onclick=()=>{const u=S.undo.pop();if(!u)return;Object.assign(S,JSON.parse(u));save();render();};
+$("bApply").onclick=()=>{const c=readCfg();if(!c){$("bApply").textContent="Geçersiz değer (kazanç ≤ işlem sayısı olmalı)";setTimeout(()=>$("bApply").textContent="Ayarları kaydet",2500);return;}
+  const startChanged=c.start!==S.cfg.start;S.cfg=c;if(startChanged&&S.hist.length===0){S.balance=c.start;S.peak=c.start;}save();render();$("bApply").textContent="Kaydedildi ✓";setTimeout(()=>$("bApply").textContent="Ayarları kaydet",1500);};
+$("bReset").onclick=()=>{if(!$("bReset").dataset.c){$("bReset").dataset.c=1;$("bReset").textContent="Emin misin? Tekrar bas";setTimeout(()=>{delete $("bReset").dataset.c;$("bReset").textContent="Her şeyi sıfırla";},3000);return;}
+  const c=readCfg()||S.cfg;S=defaults();S.cfg=c;S.balance=c.start;S.peak=c.start;save();fillCfg();render();$("bReset").textContent="Her şeyi sıfırla";delete $("bReset").dataset.c;};
+$("stop").oninput=$("pipv").oninput=render;
+</script>
+</body>
+</html>
