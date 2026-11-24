@@ -151,15 +151,19 @@ details summary{cursor:pointer;color:var(--mut);font-size:13px}
     <div><label>Prop bakiyesi ($)</label><input id="hBal" type="number" step="any" inputmode="decimal"></div>
     <div><label>Gerçek bakiye ($)</label><input id="hRBal" type="number" step="any" inputmode="decimal"></div>
   </div>
-  <div style="margin-top:10px"><label>Prop'ta açacağın lot</label><input id="hPlot" type="number" step="0.01" inputmode="decimal"></div>
-  <div style="margin-top:14px" id="hStatus"></div>
-  <div class="big" id="hSize">—</div>
-  <div class="note" id="hSizeNote"></div>
   <div class="grid" style="margin-top:10px">
-    <div class="kv"><div class="k">Prop patlarsa gerçek bakiye</div><div class="v" id="hFail"></div></div>
-    <div class="kv"><div class="k">Hedef gelirse gerçek bakiye (yaklaşık)</div><div class="v" id="hPass"></div></div>
+    <div><label>Bu işlemin hedefi ($)</label><input id="hDay" type="number" step="any" inputmode="decimal"></div>
+    <div><label>Prop'ta açacağın lot</label><input id="hPlot" type="number" step="0.01" inputmode="decimal"></div>
   </div>
-  <div class="note" style="margin-top:8px">Her işlem kapanınca iki bakiyeyi güncelle. Hedge her zaman <b>ters yön</b>: prop'ta alış → gerçekte satış.</div>
+  <div style="margin-top:14px" id="hStatus"></div>
+  <div class="grid" style="margin-top:6px">
+    <div class="kv"><div class="k">Prop hedefe giderse <b>gerçek hesap kaybeder</b></div><div class="v" id="hRLoss" style="color:var(--loss)"></div></div>
+    <div class="kv"><div class="k">Prop patlarsa <b>gerçek hesap kazanır</b></div><div class="v" id="hRWin" style="color:var(--win)"></div></div>
+  </div>
+  <div class="big" style="margin-top:12px" id="hSize">—</div>
+  <div class="note" id="hSizeNote"></div>
+  <table style="margin-top:10px"><thead><tr><th></th><th>Altın hareketi</th><th>Prop</th><th>Gerçek</th></tr></thead><tbody id="hLevels"></tbody></table>
+  <div class="note" style="margin-top:8px">Her işlemden önce iki bakiyeyi güncelle. Gerçek hesap <b>ters yön</b>: prop'ta alış → gerçekte satış. Gerçek hesabın TP'si prop'un patlama fiyatında, SL'i prop'un hedef fiyatında olur.</div>
 </div>
 
 <div class="card">
@@ -308,7 +312,7 @@ $("tR").onclick=()=>showTab("r");$("tH").onclick=()=>showTab("h");
 
 // ---------- Hedge (altın) ----------
 const HKEY="propmatch-hedge-v2";
-function hDefaults(){return{start:50000,maxl:1500,tgt:2500,cons:40,fee:75,buf:10,val:1400,plan:"500,1000,1000",trail:"eod",lock:false,lockLvl:50000,bal:50000,peak:50000,rStart:500,rBal:500,best:0,plot:1,pv:10,rv:100};}
+function hDefaults(){return{start:50000,maxl:1500,tgt:2500,cons:40,fee:75,buf:10,val:1400,plan:"500,1000,1000",trail:"eod",lock:false,lockLvl:50000,bal:50000,peak:50000,rStart:500,rBal:500,best:0,plot:1,pv:10,rv:100,day:500};}
 let H=(()=>{try{const t=localStorage.getItem(HKEY);if(t)return Object.assign(hDefaults(),JSON.parse(t));}catch(e){}return hDefaults();})();
 function hSave(){try{localStorage.setItem(HKEY,JSON.stringify(H));}catch(e){}}
 const num=v=>v.toLocaleString("tr-TR",{maximumFractionDigits:2});
@@ -326,26 +330,30 @@ function hRender(){
   const L=hFloorAt(H.peak),E=H.bal,R=H.rBal-H.rStart;
   const tgtLvl=H.start+hEffTgt();
   $("hFloor").textContent=fmt(L);$("hDown").textContent=fmt(E-L);$("hUp").textContent=fmt(Math.max(0,tgtLvl-E));
-  const dash=()=>{for(const k of["hFail","hPass","hRatio"])$(k).textContent="—";};
+  const dash=()=>{for(const k of["hRLoss","hRWin","hRatio"])$(k).textContent="—";$("hLevels").innerHTML="";};
   if(E<=L){$("hStatus").innerHTML='<span class="pill p-bad">Prop patladı</span>';$("hSize").innerHTML="Hedge'i kapat";
     $("hSizeNote").textContent=`Gerçek hesap: ${sgn(R)}. Ücret dahil net: ${sgn(R-H.fee)}.`;dash();}
   else if(E>=tgtLvl){$("hStatus").innerHTML='<span class="pill p-ok">Hedef geldi</span>';$("hSize").innerHTML="Hedge'i kapat";
     $("hSizeNote").textContent=`Gerçek hesap: ${sgn(R)}. Fonlu hesap net değeri: ${sgn(H.val-H.fee+R)}.`;dash();}
   else{
     const h=hRatioAt(E,L,R);const s=hLots(H.plot,h);
-    $("hStatus").innerHTML=`<span class="pill p-run">Gerçek hesapta açacağın</span>`;
+    const D=E-L,T=Math.max(0,H.day||0);
+    $("hStatus").innerHTML=`<span class="pill p-run">Patlama ${fmt(L)} · mesafe ${fmt(D)}</span>`;
     $("hRatio").textContent=pct(h);
-    if(!s){$("hSize").innerHTML="—";$("hSizeNote").textContent="Prop lotunu gir.";$("hFail").textContent=$("hPass").textContent="—";}
+    $("hRLoss").textContent=T>0?"−"+fmt(h*T):"Hedefi gir";
+    $("hRWin").textContent="+"+fmt(h*D);
+    $("hLevels").innerHTML="";
+    if(!s){$("hSize").innerHTML="—";$("hSizeNote").textContent="Prop lotunu gir.";}
     else{
-      $("hSize").innerHTML=`${s.lot.toLocaleString("tr-TR",{minimumFractionDigits:2})} <small>lot altın · ters yön</small>`;
+      const pd=H.plot*H.pv,rd=s.lot*H.rv;
+      $("hLevels").innerHTML=(T>0?`<tr><td>Prop hedef</td><td>${num(T/pd)} $</td><td style="color:var(--win)">+${fmt(T)}</td><td style="color:var(--loss)">−${fmt(rd*T/pd)}</td></tr>`:"")+
+        `<tr><td>Prop patlama</td><td>${num(D/pd)} $</td><td style="color:var(--loss)">−${fmt(D)}</td><td style="color:var(--win)">+${fmt(rd*D/pd)}</td></tr>`;
+      $("hSize").innerHTML=`${s.lot.toLocaleString("tr-TR",{minimumFractionDigits:2})} <small>lot · gerçek hesapta, ters yön</small>`;
       const perReal=0.01*H.rv/(H.pv*h);
       let note=`Prop'ta ${num(H.plot)} lot → altın 1$ oynarsa prop ${fmt(H.plot*H.pv)}, gerçek ${fmt(s.lot*H.rv)} oynar.`;
       if(s.lot===0)note=`<span class="warn">Bu lot için gerçek hesapta 0,01 bile fazla geliyor. Hedge'in tutması için prop'ta en az ${num(perReal/2)} lot aç.</span>`;
       else if(s.exact>0&&Math.abs(s.lot-s.exact)/s.exact>0.15)note+=` <span class="warn">0,01'e yuvarlama oranı bozuyor (tam değer ${s.exact.toLocaleString("tr-TR",{maximumFractionDigits:4})}). Tam oturması için prop'ta ${num(perReal)} lotun katlarını kullan (${num(perReal)} → 0,01 · ${num(perReal*2)} → 0,02).</span>`;
       $("hSizeNote").innerHTML=note;
-      const fail=H.rBal+s.heff*(E-L),pass=H.rBal-s.heff*(tgtLvl-E);
-      $("hFail").textContent=fmt(fail);$("hFail").style.color=fail-H.rStart>=H.fee?"var(--win)":"var(--warn)";
-      $("hPass").textContent=fmt(pass);$("hPass").style.color="var(--loss)";
     }
   }
   // plan (baştan, gün sonu varsayımı, yuvarlamasız oran)
@@ -364,7 +372,7 @@ function hRender(){
   $("hNetPass").textContent=sgn(netPass);$("hNetPass").style.color=netPass>=0?"var(--win)":"var(--loss)";
 }
 
-const HF={hStart:"start",hMaxl:"maxl",hTgt:"tgt",hCons:"cons",hFee:"fee",hBuf:"buf",hVal:"val",hLockLvl:"lockLvl",hBal:"bal",hPeak:"peak",hRStart:"rStart",hRBal:"rBal",hBest:"best",hPlot:"plot",hPv:"pv",hRv:"rv"};
+const HF={hStart:"start",hMaxl:"maxl",hTgt:"tgt",hCons:"cons",hFee:"fee",hBuf:"buf",hVal:"val",hLockLvl:"lockLvl",hBal:"bal",hPeak:"peak",hRStart:"rStart",hRBal:"rBal",hBest:"best",hPlot:"plot",hPv:"pv",hRv:"rv",hDay:"day"};
 function hFill(){for(const[id,k]of Object.entries(HF))$(id).value=H[k];$("hPlanIn").value=H.plan;$("hTrail").value=H.trail;$("hLock").checked=H.lock;}
 for(const[id,k]of Object.entries(HF)){$(id).oninput=()=>{const v=parseFloat($(id).value);if(!isFinite(v))return;H[k]=v;
   if(k==="bal"&&v>H.peak){H.peak=v;$("hPeak").value=v;}
