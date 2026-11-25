@@ -323,8 +323,8 @@ function hFloorAt(peak){let L=peak-H.maxl;if(H.lock)L=Math.min(L,H.lockLvl);retu
 function hCover(){return H.fee+H.buf;}
 function hEffTgt(){const c=H.cons>0?H.cons/100:1;return Math.max(H.tgt,(H.best||0)/c);}
 function hRatioAt(E,L,R){const d=E-L;if(d<=0)return null;return Math.max(0,(hCover()-R)/d);}
-// gerçek lot = prop lot × (prop $/1$) × h ÷ (gerçek $/1$), 0,01'e yuvarlanır
-function hLots(plot,h){if(!(H.pv>0&&H.rv>0&&plot>0))return null;const exact=plot*H.pv*h/H.rv;const lot=Math.round(exact*100)/100;return{exact,lot,heff:lot*H.rv/(plot*H.pv)};}
+// gerçek lot = prop birim × (prop $/1$) × h ÷ (gerçek $/1$), 0,01'e YUKARI yuvarlanır: patlarsa ücret her zaman geri gelir
+function hLots(plot,h){if(!(H.pv>0&&H.rv>0&&plot>0))return null;const exact=plot*H.pv*h/H.rv;const lot=Math.ceil(exact*100-1e-9)/100;return{exact,lot,heff:lot*H.rv/(plot*H.pv)};}
 // tersten: prop birim sayısına göre gerçek lot ve gerçekleşen oran; 1 prop birimi = kaç adet 0,01 lot
 function hComboHtml(h){if(!(H.pv>0&&H.rv>0&&h>0))return"";
   const unit=H.pv/(H.rv*0.01);let rows="";let shown=0;
@@ -361,9 +361,10 @@ function hRender(){
       const perReal=0.01*H.rv/(H.pv*h);
       let note=`Prop'ta ${num(H.plot)} birim → altın 1$ oynarsa prop ${fmt(H.plot*H.pv)}, gerçek ${fmt(s.lot*H.rv)} oynar. Gerçekleşen oran 1 : ${s.lot>0?num(1/s.heff):"—"}.`;
       if(s.lot===0)note=`<span class="warn">Bu birim için gerçek hesapta 0,01 lot bile fazla geliyor. Hedge'in tutması için prop'ta en az ${Math.ceil(perReal/2)} birim aç.</span>`;
-      else if(s.exact>0&&Math.abs(s.lot-s.exact)/s.exact>0.15)note+=` <span class="warn">0,01'e yuvarlama oranı bozuyor (tam değer ${s.exact.toLocaleString("tr-TR",{maximumFractionDigits:4})} lot). Aşağıdaki tablodan oranı tutan bir birim seç.</span>`;
+      
+      if(s.lot>0&&(s.lot-s.exact)/s.exact>0.3)note+=` <span class="warn">0,01 lot bu birim için büyük kalıyor: prop geçerse gerçek hesap gereğinden fazla kaybeder. Prop'ta daha çok birim açarsan oran tam oturur.</span>`;
       $("hSizeNote").innerHTML=note;
-      $("hCombo").innerHTML=hComboHtml(h);
+      $("hCombo").innerHTML="";
     }
   }
   // plan (baştan, gün sonu varsayımı, yuvarlamasız oran)
