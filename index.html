@@ -313,7 +313,7 @@ $("tR").onclick=()=>showTab("r");$("tH").onclick=()=>showTab("h");
 
 // ---------- Hedge (altın) ----------
 const HKEY="propmatch-hedge-v2";
-function hDefaults(){return{start:50000,maxl:1500,tgt:2500,cons:40,fee:75,buf:10,val:1400,plan:"500,1000,1000",trail:"eod",lock:false,lockLvl:50000,bal:50000,peak:50000,rStart:500,rBal:500,best:0,plot:1,pv:10,rv:100,day:500};}
+function hDefaults(){return{start:50000,maxl:1500,tgt:2500,cons:40,fee:85,buf:10,val:1400,plan:"500,1000,1000",trail:"eod",lock:false,lockLvl:50000,bal:50000,peak:50000,rStart:500,rBal:500,best:0,plot:1,pv:10,rv:100,day:500};}
 let H=(()=>{try{const t=localStorage.getItem(HKEY);if(t)return Object.assign(hDefaults(),JSON.parse(t));}catch(e){}return hDefaults();})();
 function hSave(){try{localStorage.setItem(HKEY,JSON.stringify(H));}catch(e){}}
 const num=v=>v.toLocaleString("tr-TR",{maximumFractionDigits:2});
