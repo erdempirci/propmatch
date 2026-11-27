@@ -148,35 +148,25 @@ details summary{cursor:pointer;color:var(--mut);font-size:13px}
 <div class="card">
   <h2>Sıradaki işlem</h2>
   <div class="grid">
-    <div><label>Prop bakiyesi ($)</label><input id="hBal" type="number" step="any" inputmode="decimal"></div>
-    <div><label>Gerçek bakiye ($)</label><input id="hRBal" type="number" step="any" inputmode="decimal"></div>
-  </div>
-  <div class="grid" style="margin-top:10px">
     <div><label>Bu işlemin hedefi ($)</label><input id="hDay" type="number" step="any" inputmode="decimal"></div>
-    <div><label>Prop'ta açacağın birim (kontrat)</label><input id="hPlot" type="number" step="1" min="1" inputmode="numeric"></div>
+    <div><label>Prop'ta birim (kontrat)</label><input id="hPlot" type="number" step="1" min="1" inputmode="numeric"></div>
   </div>
-  <div style="margin-top:14px" id="hStatus"></div>
-  <div class="grid" style="margin-top:6px">
-    <div class="kv"><div class="k">Prop hedefe giderse <b>gerçek hesap kaybeder</b></div><div class="v" id="hRLoss" style="color:var(--loss)"></div></div>
-    <div class="kv"><div class="k">Prop patlarsa <b>gerçek hesap kazanır</b></div><div class="v" id="hRWin" style="color:var(--win)"></div></div>
-  </div>
-  <div class="big" style="margin-top:12px" id="hSize">—</div>
+  <div style="margin-top:12px" id="hStatus"></div>
+  <div class="big" style="margin-top:6px" id="hSize">—</div>
   <div class="note" id="hSizeNote"></div>
-  <div id="hCombo" style="margin-top:10px"></div>
-  <table style="margin-top:10px"><thead><tr><th></th><th>Altın hareketi</th><th>Prop</th><th>Gerçek</th></tr></thead><tbody id="hLevels"></tbody></table>
-  <div class="note" style="margin-top:8px">Her işlemden önce iki bakiyeyi güncelle. Gerçek hesap <b>ters yön</b>: prop'ta alış → gerçekte satış. Gerçek hesabın TP'si prop'un patlama fiyatında, SL'i prop'un hedef fiyatında olur.</div>
+  <table style="margin-top:10px"><tbody id="hTbl"></tbody></table>
+  <div id="hCombo"></div><div class="hide" id="hRLoss"></div><div class="hide" id="hRWin"></div><table class="hide"><tbody id="hLevels"></tbody></table>
+  <div class="hide" id="hFloor"></div><div class="hide" id="hDown"></div><div class="hide" id="hUp"></div><div class="hide" id="hRatio"></div><div class="hide" id="hRpl"></div><div class="hide" id="hNeed"></div>
 </div>
 
 <div class="card">
-  <h2>Durum</h2>
+  <h2>İşlem kapandı → sonucu yaz</h2>
   <div class="grid">
-    <div class="kv"><div class="k">Patlama seviyesi</div><div class="v" id="hFloor"></div></div>
-    <div class="kv"><div class="k">Patlamaya mesafe</div><div class="v" id="hDown"></div></div>
-    <div class="kv"><div class="k">Hedefe kalan</div><div class="v" id="hUp"></div></div>
-    <div class="kv"><div class="k">Hedge oranı</div><div class="v" id="hRatio"></div></div>
-    <div class="kv"><div class="k">Gerçek hesabın şimdiye kadarki K/Z'si</div><div class="v" id="hRpl"></div></div>
-    <div class="kv"><div class="k">Bu işlem geri getirmeli</div><div class="v" id="hNeed"></div></div>
+    <div><label>Prop K/Z ($)</label><input id="hInP" type="number" step="any" inputmode="decimal" placeholder="+1000 / −1500"></div>
+    <div><label>Gerçek K/Z ($)</label><input id="hInR" type="number" step="any" inputmode="decimal" placeholder="−70 / +210"></div>
   </div>
+  <div class="row"><button class="bs" id="hSaveBtn">Kaydet (birikir)</button><button class="bs" id="hUndoBtn">↶ Son kaydı geri al</button></div>
+  <table style="margin-top:10px"><thead><tr><th>#</th><th>Prop</th><th>Gerçek</th><th>Prop bakiye</th><th>Gerçek toplam</th></tr></thead><tbody id="hLog"></tbody></table>
 </div>
 
 <div class="card">
@@ -190,7 +180,8 @@ details summary{cursor:pointer;color:var(--mut);font-size:13px}
 
   <div class="grid" style="margin-top:12px">
     <div><label>Prop zirve bakiyesi ($)</label><input id="hPeak" type="number" step="any"></div>
-    <div><label>Gerçek başlangıç bakiyesi ($) · ilk işlemden ÖNCEKİ bakiye</label><input id="hRStart" type="number" step="any"></div>
+    <div><label>Prop bakiyesi ($) · düzeltme için</label><input id="hBal" type="number" step="any"></div>
+    <div><label>Gerçek hesap birikmiş K/Z ($) · düzeltme için</label><input id="hRpl2" type="number" step="any"></div>
     <div><label>Prop: 1 birim altın, 1$ harekette ($)</label><input id="hPv" type="number" step="any"></div>
     <div><label>Gerçek: 1 lot altın, 1$ harekette ($) · 0,01 lot = bunun %1'i</label><input id="hRv" type="number" step="any"></div>
     <div><label>Prop başlangıç bakiyesi ($)</label><input id="hStart" type="number" step="any"></div>
@@ -315,8 +306,8 @@ $("tR").onclick=()=>showTab("r");$("tH").onclick=()=>showTab("h");
 
 // ---------- Hedge (altın) ----------
 const HKEY="propmatch-hedge-v2";
-function hDefaults(){return{start:50000,maxl:1500,tgt:2500,cons:40,fee:85,buf:10,val:1400,plan:"500,1000,1000",trail:"eod",lock:false,lockLvl:50000,bal:50000,peak:50000,rStart:500,rBal:500,best:0,plot:1,pv:10,rv:100,day:500};}
-let H=(()=>{try{const t=localStorage.getItem(HKEY);if(t)return Object.assign(hDefaults(),JSON.parse(t));}catch(e){}return hDefaults();})();
+function hDefaults(){return{start:50000,maxl:1500,tgt:2500,cons:40,fee:85,buf:10,val:1400,plan:"500,1000,1000",trail:"eod",lock:true,v2:1,lockLvl:50000,bal:50000,peak:50000,rpl:0,log:[],best:0,plot:1,pv:10,rv:100,day:500};}
+let H=(()=>{try{const t=localStorage.getItem(HKEY);if(t){const o=JSON.parse(t);if(o.rpl===undefined&&o.rBal!==undefined&&o.rStart!==undefined)o.rpl=o.rBal-o.rStart;if(!o.v2){o.lock=true;o.v2=1;}return Object.assign(hDefaults(),o);}}catch(e){}return hDefaults();})();
 function hSave(){try{localStorage.setItem(HKEY,JSON.stringify(H));}catch(e){}}
 const num=v=>v.toLocaleString("tr-TR",{maximumFractionDigits:2});
 const sgn=v=>(v>0?"+":"")+fmt(v);
@@ -338,7 +329,7 @@ function hComboHtml(h){if(!(H.pv>0&&H.rv>0&&h>0))return"";
 function hPlanArr(){return String(H.plan).split(/[,;\s]+/).map(Number).filter(x=>x>0);}
 
 function hRender(){
-  const L=hFloorAt(H.peak),E=H.bal,R=H.rBal-H.rStart;
+  const L=hFloorAt(H.peak),E=H.bal,R=H.rpl;
   const tgtLvl=H.start+hEffTgt();
   $("hFloor").textContent=fmt(L);$("hRpl").textContent=sgn(R);$("hRpl").style.color=R>=0?"var(--win)":"var(--loss)";$("hNeed").textContent=fmt(Math.max(0,hCover()-R))+` (ücret ${fmt(H.fee)} + pay ${fmt(H.buf)}`+(R<0?` + önceki kayıp ${fmt(-R)})`:")");$("hDown").textContent=fmt(E-L);$("hUp").textContent=fmt(Math.max(0,tgtLvl-E));
   const dash=()=>{for(const k of["hRLoss","hRWin","hRatio"])$(k).textContent="—";$("hLevels").innerHTML="";$("hCombo").innerHTML="";};
@@ -369,6 +360,18 @@ function hRender(){
       $("hCombo").innerHTML="";
     }
   }
+  // sade tablo
+  {const T=Math.max(0,H.day||0),D=E-L,h=(E>L&&E<tgtLvl)?hRatioAt(E,L,R):null,s=h!==null?hLots(H.plot,h):null;
+   const pd=H.plot*H.pv,rd=s?s.lot*H.rv:0;const row=(k,v,c)=>`<tr><td>${k}</td><td style="${c?"color:"+c:""}">${v}</td></tr>`;
+   let t=row("Prop bakiyesi",fmt(E))+row("Patlama seviyesi · mesafe",`${fmt(L)} · ${fmt(D)}`)+row("Hedefe kalan",fmt(Math.max(0,tgtLvl-E)))+
+     row("Gerçek hesap birikmiş K/Z",sgn(R),R>=0?"var(--win)":"var(--loss)")+
+     row("Bu işlem geri getirmeli",`${fmt(Math.max(0,hCover()-R))} <span class="note">(ücret ${num(H.fee)} + pay ${num(H.buf)}${R<0?" + kayıp "+num(-R):""})</span>`);
+   if(h!==null){t+=row("Oran",`1 : ${num(1/h)}`);
+     if(s&&s.lot>0){t+=row("Gerçek hesapta aç",`<b>${s.lot.toLocaleString("tr-TR",{minimumFractionDigits:2})} lot</b> ters yön`);
+       if(T>0)t+=row(`Prop +${num(T)} olursa gerçek`,`−${fmt(rd*T/pd)} <span class="note">(altın ${num(T/pd)}$)</span>`,"var(--loss)");
+       t+=row(`Prop patlarsa gerçek`,`+${fmt(rd*D/pd)} → net ${sgn(R+rd*D/pd-H.fee)}`,"var(--win)");}}
+   $("hTbl").innerHTML=t;}
+  {const lg=H.log||[];$("hLog").innerHTML=lg.length?lg.map((x,i)=>`<tr><td>${i+1}</td><td>${sgn(x.p)}</td><td>${sgn(x.r)}</td><td>${fmt(x.bal)}</td><td>${sgn(x.rpl)}</td></tr>`).reverse().join(""):'<tr><td colspan="5" class="note">Henüz kayıt yok.</td></tr>';}
   // plan (baştan, gün sonu varsayımı, yuvarlamasız oran)
   const plan=hPlanArr();let G=0,Rs=0,peak=H.start,rows="";const total=plan.reduce((a,b)=>a+b,0);
   plan.forEach((t,ix)=>{const Es=H.start+G,Ls=hFloorAt(peak);const h=hRatioAt(Es,Ls,Rs);if(h===null)return;
@@ -385,16 +388,20 @@ function hRender(){
   $("hNetPass").textContent=sgn(netPass);$("hNetPass").style.color=netPass>=0?"var(--win)":"var(--loss)";
 }
 
-const HF={hStart:"start",hMaxl:"maxl",hTgt:"tgt",hCons:"cons",hFee:"fee",hBuf:"buf",hVal:"val",hLockLvl:"lockLvl",hBal:"bal",hPeak:"peak",hRStart:"rStart",hRBal:"rBal",hBest:"best",hPlot:"plot",hPv:"pv",hRv:"rv",hDay:"day"};
+const HF={hStart:"start",hMaxl:"maxl",hTgt:"tgt",hCons:"cons",hFee:"fee",hBuf:"buf",hVal:"val",hLockLvl:"lockLvl",hBal:"bal",hPeak:"peak",hRpl2:"rpl",hBest:"best",hPlot:"plot",hPv:"pv",hRv:"rv",hDay:"day"};
 function hFill(){for(const[id,k]of Object.entries(HF))$(id).value=H[k];$("hPlanIn").value=H.plan;$("hTrail").value=H.trail;$("hLock").checked=H.lock;}
 for(const[id,k]of Object.entries(HF)){$(id).oninput=()=>{const v=parseFloat($(id).value);if(!isFinite(v))return;H[k]=v;
   if(k==="bal"&&v>H.peak){H.peak=v;$("hPeak").value=v;}
   hSave();hRender();};}
 $("hPlanIn").oninput=()=>{H.plan=$("hPlanIn").value;hSave();hRender();};
+$("hSaveBtn").onclick=()=>{const p=parseFloat($("hInP").value),q=parseFloat($("hInR").value);if(!isFinite(p)&&!isFinite(q))return;
+  const P=isFinite(p)?p:0,Q=isFinite(q)?q:0;H.log=H.log||[];H.log.push({p:P,r:Q,prevPeak:H.peak,prevBest:H.best,bal:H.bal+P,rpl:H.rpl+Q});
+  H.bal+=P;H.rpl+=Q;if(H.bal>H.peak)H.peak=H.bal;if(P>(H.best||0))H.best=P;$("hInP").value=$("hInR").value="";hSave();hFill();hRender();};
+$("hUndoBtn").onclick=()=>{const x=(H.log||[]).pop();if(!x)return;H.bal-=x.p;H.rpl-=x.r;H.peak=x.prevPeak;H.best=x.prevBest;hSave();hFill();hRender();};
 $("hTrail").onchange=()=>{H.trail=$("hTrail").value;hSave();hRender();};
 $("hLock").onchange=()=>{H.lock=$("hLock").checked;hSave();hRender();};
 $("hResetBtn").onclick=()=>{const b=$("hResetBtn");if(!b.dataset.c){b.dataset.c=1;b.textContent="Emin misin? Tekrar bas";setTimeout(()=>{delete b.dataset.c;b.textContent="Yeni challenge (sıfırla)";},3000);return;}
-  delete b.dataset.c;b.textContent="Yeni challenge (sıfırla)";H.bal=H.peak=H.start;H.rBal=H.rStart;H.best=0;hSave();hFill();hRender();};
+  delete b.dataset.c;b.textContent="Yeni challenge (sıfırla)";H.bal=H.peak=H.start;H.rpl=0;H.log=[];H.best=0;hSave();hFill();hRender();};
 hFill();hRender();
 window.addEventListener("pageshow",()=>{hFill();hRender();});
 document.querySelectorAll("input").forEach(i=>i.setAttribute("autocomplete","off"));
