@@ -174,6 +174,8 @@ details summary{cursor:pointer;color:var(--mut);font-size:13px}
     <div class="kv"><div class="k">Patlamaya mesafe</div><div class="v" id="hDown"></div></div>
     <div class="kv"><div class="k">Hedefe kalan</div><div class="v" id="hUp"></div></div>
     <div class="kv"><div class="k">Hedge oranı</div><div class="v" id="hRatio"></div></div>
+    <div class="kv"><div class="k">Gerçek hesabın şimdiye kadarki K/Z'si</div><div class="v" id="hRpl"></div></div>
+    <div class="kv"><div class="k">Bu işlem geri getirmeli</div><div class="v" id="hNeed"></div></div>
   </div>
 </div>
 
@@ -188,7 +190,7 @@ details summary{cursor:pointer;color:var(--mut);font-size:13px}
 
   <div class="grid" style="margin-top:12px">
     <div><label>Prop zirve bakiyesi ($)</label><input id="hPeak" type="number" step="any"></div>
-    <div><label>Gerçek başlangıç bakiyesi ($)</label><input id="hRStart" type="number" step="any"></div>
+    <div><label>Gerçek başlangıç bakiyesi ($) · ilk işlemden ÖNCEKİ bakiye</label><input id="hRStart" type="number" step="any"></div>
     <div><label>Prop: 1 birim altın, 1$ harekette ($)</label><input id="hPv" type="number" step="any"></div>
     <div><label>Gerçek: 1 lot altın, 1$ harekette ($) · 0,01 lot = bunun %1'i</label><input id="hRv" type="number" step="any"></div>
     <div><label>Prop başlangıç bakiyesi ($)</label><input id="hStart" type="number" step="any"></div>
@@ -338,7 +340,7 @@ function hPlanArr(){return String(H.plan).split(/[,;\s]+/).map(Number).filter(x=
 function hRender(){
   const L=hFloorAt(H.peak),E=H.bal,R=H.rBal-H.rStart;
   const tgtLvl=H.start+hEffTgt();
-  $("hFloor").textContent=fmt(L);$("hDown").textContent=fmt(E-L);$("hUp").textContent=fmt(Math.max(0,tgtLvl-E));
+  $("hFloor").textContent=fmt(L);$("hRpl").textContent=sgn(R);$("hRpl").style.color=R>=0?"var(--win)":"var(--loss)";$("hNeed").textContent=fmt(Math.max(0,hCover()-R))+` (ücret ${fmt(H.fee)} + pay ${fmt(H.buf)}`+(R<0?` + önceki kayıp ${fmt(-R)})`:")");$("hDown").textContent=fmt(E-L);$("hUp").textContent=fmt(Math.max(0,tgtLvl-E));
   const dash=()=>{for(const k of["hRLoss","hRWin","hRatio"])$(k).textContent="—";$("hLevels").innerHTML="";$("hCombo").innerHTML="";};
   if(E<=L){$("hStatus").innerHTML='<span class="pill p-bad">Prop patladı</span>';$("hSize").innerHTML="Hedge'i kapat";
     $("hSizeNote").textContent=`Gerçek hesap: ${sgn(R)}. Ücret dahil net: ${sgn(R-H.fee)}.`;dash();}
@@ -394,6 +396,8 @@ $("hLock").onchange=()=>{H.lock=$("hLock").checked;hSave();hRender();};
 $("hResetBtn").onclick=()=>{const b=$("hResetBtn");if(!b.dataset.c){b.dataset.c=1;b.textContent="Emin misin? Tekrar bas";setTimeout(()=>{delete b.dataset.c;b.textContent="Yeni challenge (sıfırla)";},3000);return;}
   delete b.dataset.c;b.textContent="Yeni challenge (sıfırla)";H.bal=H.peak=H.start;H.rBal=H.rStart;H.best=0;hSave();hFill();hRender();};
 hFill();hRender();
+window.addEventListener("pageshow",()=>{hFill();hRender();});
+document.querySelectorAll("input").forEach(i=>i.setAttribute("autocomplete","off"));
 try{showTab(localStorage.getItem(TKEY)==="h"?"h":"r");}catch(e){showTab("r");}
 </script>
 </body>
